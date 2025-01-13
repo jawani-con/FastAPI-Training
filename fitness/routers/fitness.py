@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from fitness.database import get_db
-from fitness.crud import create_fitness, create_membership_details, get_fitness_by_username, delete_fitness_by_username
+from fitness.crud import get_fitness, create_fitness, create_membership_details, get_fitness_by_username, delete_fitness_by_username
 from fitness.schemas import FitnessBase, MembershipDetails, Fitness
+from fitness.models import UserRole
 
 router = APIRouter()
 
@@ -14,9 +15,22 @@ def create_fitness_user(fitness: FitnessBase, db: Session = Depends(get_db)):
     
     return create_fitness(db, fitness=fitness)
 
+# @router.post("/admin/members/membership/{user_id}/", status_code=status.HTTP_201_CREATED)
+# def create_membership(user_id: int, membership: MembershipDetails, db: Session = Depends(get_db)):
+#     return create_membership_details(db, membership_details=membership, user_id=user_id)
+
 @router.post("/admin/members/membership/{user_id}/", status_code=status.HTTP_201_CREATED)
 def create_membership(user_id: int, membership: MembershipDetails, db: Session = Depends(get_db)):
+    user = get_fitness(db, user_id=user_id)
+    
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    if user.role == UserRole.admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin can't have membership")
+    
     return create_membership_details(db, membership_details=membership, user_id=user_id)
+
 
 @router.delete("/admin/members/delete/{username}")
 def delete_user(username: str, db: Session = Depends(get_db)):
