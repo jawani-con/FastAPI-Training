@@ -80,3 +80,12 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: str
+
+
+class MemberResponse(BaseModel):
+    id: int
+    username: str
+    role: UserRole
+
+    class Config:
+        orm_mode = True

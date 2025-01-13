@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from fitness.database import get_db
-from fitness.crud import get_fitness, create_fitness, create_membership_details, get_fitness_by_username, delete_fitness_by_username
+from fitness.crud import get_fitness, create_fitness, create_membership_details, get_fitness_by_username, delete_fitness_by_username, get_all_members
 from fitness.schemas import FitnessBase, MembershipDetails, Fitness
 from fitness.models import UserRole
+from typing import List
+from fitness.schemas import MemberResponse
 
 router = APIRouter()
 
@@ -38,3 +40,8 @@ def delete_user(username: str, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": f"User {username} deleted successfully"}
+
+@router.get("/admin/members", response_model=List[MemberResponse])
+def view_all_members(db: Session = Depends(get_db)):
+    members = get_all_members(db)
+    return members

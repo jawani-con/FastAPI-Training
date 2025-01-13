@@ -24,7 +24,6 @@ def create_fitness(db: Session, fitness: FitnessBase):
 
 # Function to create membership details for a user
 def create_membership_details(db: Session, membership_details: PydanticMembershipDetails, user_id: int):
-    # Convert Pydantic schema to SQLAlchemy model
     db_membership = DBMembershipDetails(
         user_id=user_id,
         membership_date=membership_details.membership_date,
@@ -43,3 +42,6 @@ def get_fitness(db: Session, user_id: int):
 # Function to get a Fitness user by username
 def get_fitness_by_username(db: Session, username: str):
     return db.query(Fitness).filter(Fitness.username == username).first()
+
+def get_all_members(db: Session):
+    return db.query(Fitness).all()
