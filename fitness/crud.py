@@ -2,6 +2,13 @@ from sqlalchemy.orm import Session
 from fitness.models import Fitness, MembershipDetails
 from fitness.schemas import FitnessBase, MembershipDetails
 
+def delete_fitness_by_username(db: Session, username: str):
+    user = db.query(Fitness).filter(Fitness.username == username).first()
+    if user:
+        db.delete(user)
+        db.commit()
+    return user
+
 def create_fitness(db: Session, fitness: FitnessBase):
     db_fitness = Fitness(username=fitness.username, password=fitness.password, role=fitness.role)
     db.add(db_fitness)

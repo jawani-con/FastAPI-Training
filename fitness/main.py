@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fitness.database import Base, engine
 from fitness.routers import fitness
 from fitness.auth.oauth2 import get_current_user  # Make sure you're importing it from the correct path
-from fitness.auth.oauth2 import routers as auth_router  # If the router is defined
+from fitness.auth.oauth2 import router as auth_router  # If the router is defined
 
 app = FastAPI()
 

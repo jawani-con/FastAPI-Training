@@ -4,8 +4,8 @@ from fitness.database import Base
 import enum
 
 class UserRole(enum.Enum):
-    MEMBER = "user"
-    ADMIN = "admin"
+    user = "user"
+    admin = "admin"
 
 class Fitness(Base):
     __tablename__ = "fitness"

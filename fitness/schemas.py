@@ -4,8 +4,8 @@ from datetime import date
 import enum
 
 class UserRole(str, enum.Enum):
-    USER = "user"
-    ADMIN = "admin"
+    user = "user"
+    admin = "admin"
 
 class MembershipDetails(BaseModel):
     membership_date: date
