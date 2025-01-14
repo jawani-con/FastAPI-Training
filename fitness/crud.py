@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from fitness.models import Fitness, MembershipDetails as DBMembershipDetails  
 from fitness.schemas import FitnessBase, MembershipDetails as PydanticMembershipDetails  
 from datetime import timedelta
+from fitness.auth.hashing import get_password_hash
 
 def delete_fitness_by_username(db: Session, username: str):
     user = db.query(Fitness).filter(Fitness.username == username).first()
@@ -13,7 +14,7 @@ def delete_fitness_by_username(db: Session, username: str):
 def create_fitness(db: Session, fitness: FitnessBase):
     db_fitness = Fitness(
         username=fitness.username, 
-        password=fitness.password, 
+        password=get_password_hash(fitness.password), 
         role=fitness.role
     )
     db.add(db_fitness)

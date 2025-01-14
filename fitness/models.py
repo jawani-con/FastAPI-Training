@@ -12,7 +12,7 @@ class Fitness(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(15), unique=True, nullable=False)
-    password = Column(String(10), nullable=False)
+    password = Column(String(255), nullable=False)
     role = Column(Enum(UserRole), nullable=False)
     membership_details = relationship("MembershipDetails", back_populates="user", uselist=False)
 
