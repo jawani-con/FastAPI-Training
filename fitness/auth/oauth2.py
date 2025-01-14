@@ -42,7 +42,6 @@ def register(fitness: FitnessBase, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # access_token = create_access_token(data={"sub": user.username})
     return {"response":"user registered"}
 
 
