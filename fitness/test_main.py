@@ -1,103 +1,113 @@
-# import pytest
-# from fastapi.testclient import TestClient
-# from sqlalchemy import create_engine
-# from sqlalchemy.orm import sessionmaker
-# from fitness.database import Base, get_db
-# from fitness.main import app
-# from fitness.models import Fitness, MembershipDetails, UserRole
+from fastapi.testclient import TestClient
+from fitness.main import app  
+from fitness.routers.fitness import router
+from unittest.mock import MagicMock
+from fitness.auth.oauth2 import get_current_user
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, StaticPool
 
-# # Create a test database
-# SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
-# engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-# TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
-# # Override the dependency
-# @pytest.fixture(scope="module")
-# def test_db():
-#     Base.metadata.create_all(bind=engine)
-#     db = TestingSessionLocal()
-#     try:
-#         yield db
-#     finally:
-#         db.close()
-#         Base.metadata.drop_all(bind=engine)
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
 
-# app.dependency_overrides[get_db] = lambda: next(test_db())
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# client = TestClient(app)
-
-# def create_test_user(db, username="testuser", role="user"):
-#     user = Fitness(username=username, role=role, hashed_password="hashedpassword")
-#     db.add(user)
-#     db.commit()
-#     db.refresh(user)
-#     return user
-
-# def test_create_fitness_user(test_db):
-#     response = client.post(
-#         "/admin/members/",
-#         json={"username": "newuser", "role": "user", "password": "password123"},
-#     )
-#     assert response.status_code == 201
-#     data = response.json()
-#     assert data["username"] == "newuser"
+client = TestClient(app)
 
 
-# def test_duplicate_user_error(test_db):
-#     create_test_user(test_db, username="existinguser")
-#     response = client.post(
-#         "/admin/members/",
-#         json={"username": "existinguser", "role": "user", "password": "password123"},
-#     )
-#     assert response.status_code == 400
-#     assert response.json()["detail"] == "Username already registered"
-
-# def test_create_membership(test_db):
-#     user = create_test_user(test_db, username="membershipuser")
-#     response = client.post(
-#         f"/admin/members/{user.id}/",
-#         json={"plan": "gold", "expiry_date": "2025-12-31"},
-#     )
-#     assert response.status_code == 201
-#     data = response.json()
-#     assert data["plan"] == "gold"
+def override_get_db():
+    try:
+        db = TestingSessionLocal()
+        yield db
+    finally:
+        db.close()
 
 
-# def test_delete_user(test_db):
-#     user = create_test_user(test_db, username="deleteuser")
-#     response = client.delete(f"/admin/members/delete/{user.username}")
-#     assert response.status_code == 200
-#     assert response.json()["message"] == f"User {user.username} deleted successfully"
+# Mock get_current_user for tests that require authentication
+mock_user_admin = MagicMock(return_value={"id": 1, "username": "admin", "role": "admin"})
+mock_user_user = MagicMock(return_value={"id": 2, "username": "user", "role": "user"})
 
 
-# def test_view_all_members(test_db):
-#     create_test_user(test_db, username="member1")
-#     create_test_user(test_db, username="member2")
-#     response = client.get("/admin/members")
-#     assert response.status_code == 200
-#     data = response.json()
-#     assert len(data) >= 2
+# Test Cases
+
+def test_login_success():
+    response = client.post("/login", json={"username": "valid_user", "password": "valid_password"})
+    assert response.status_code == 200
+    assert "access_token" in response.json()
+    assert response.json()["token_type"] == "bearer"
 
 
-# def test_view_membership_details(test_db):
-#     user = create_test_user(test_db, username="detailuser")
-#     membership = MembershipDetails(plan="silver", expiry_date="2025-01-01", user_id=user.id)
-#     test_db.add(membership)
-#     test_db.commit()
-
-#     response = client.get("/members", headers={"Authorization": f"Bearer {user.id}"})
-#     assert response.status_code == 200
-#     data = response.json()
-#     assert data["plan"] == "silver"
+def test_login_failure():
+    response = client.post("/login", json={"username": "invalid_user", "password": "invalid_password"})
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Incorrect username or password"
 
 
-# def test_renew_membership(test_db):
-#     user = create_test_user(test_db, username="renewuser")
-#     membership = MembershipDetails(plan="gold", expiry_date="2025-01-01", user_id=user.id)
-#     test_db.add(membership)
-#     test_db.commit()
+def test_register_success():
+    response = client.post("/register", json={"username": "new_user", "password": "new_password", "role": "user"})
+    assert response.status_code == 200
+    assert response.json()["response"] == "user registered"
 
-#     response = client.post("/members/renew", headers={"Authorization": f"Bearer {user.id}"})
-#     assert response.status_code == 200
-#     data = response.json()
-#     assert data["plan"] == "gold"
+
+def test_register_failure_user_exists():
+    response = client.post("/register", json={"username": "existing_user", "password": "password", "role": "user"})
+    assert response.status_code == 401
+    assert response.json()["detail"] == "User exists"
+
+
+def test_view_all_members():
+    app.dependency_overrides[get_current_user] = mock_user_admin
+    response = client.get("/admin/members")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)  # Expecting a list of members
+    app.dependency_overrides = {}
+
+
+def test_delete_user_success():
+    app.dependency_overrides[get_current_user] = mock_user_admin
+    response = client.delete("/admin/members/delete/test_user")
+    assert response.status_code == 200
+    assert response.json()["message"] == "User test_user deleted successfully"
+    app.dependency_overrides = {}
+
+
+def test_delete_user_failure():
+    app.dependency_overrides[get_current_user] = mock_user_admin
+    response = client.delete("/admin/members/delete/nonexistent_user")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "User not found"
+    app.dependency_overrides = {}
+
+
+def test_view_membership_details_user():
+    app.dependency_overrides[get_current_user] = mock_user_user
+    response = client.get("/members")
+    assert response.status_code == 200
+    app.dependency_overrides = {}
+
+
+def test_view_membership_details_forbidden():
+    app.dependency_overrides[get_current_user] = mock_user_admin
+    response = client.get("/members")
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Access forbidden for admin"
+    app.dependency_overrides = {}
+
+
+def test_renew_membership_success():
+    app.dependency_overrides[get_current_user] = mock_user_user
+    response = client.post("/members/renew")
+    assert response.status_code == 200
+    app.dependency_overrides = {}
+
+
+def test_renew_membership_forbidden():
+    app.dependency_overrides[get_current_user] = mock_user_admin
+    response = client.post("/members/renew")
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Admins cannot renew memberships"
+    app.dependency_overrides = {}
